@@ -1,53 +1,32 @@
-# default install paths
-EXEC        = rastertotpcl
-CUPSDIR     = $(shell cups-config --serverbin)
-CUPSDATADIR = $(shell cups-config --datadir)
+## File contents here courtesy of https://github.com/Drachenkaetzchen/rastertotpcl
+## This Makefile will successfully install the drivers onto Ubuntu 18.04 LTS
 
-# MacOS system integrity protection prevents us from writing to $(cups-config --datadir)
-# As a fallback, we copy the PPDs to $(cups-config --serverroot)/ppd
-UNAME_S     = $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-CUPSDATADIR = $(shell cups-config --serverroot)
-endif
-
-CFLAGS  += $(shell cups-config --cflags)
-CFLAGS  += -lm				# link math.h
-CFLAGS  += -Wall			# enable all compiler warning messages
-CFLAGS  += -Wno-deprecated-declarations	# do not warn about deprecated CUPS api
-
-LDFLAGS += $(shell cups-config --ldflags)
-LDLIBS  += $(shell cups-config --image --libs)
+EXEC=rastertotpcl
+CFLAGS=-Wall -Wextra --std=c99 -O2 -lm
+PPDPATH=/usr/share/ppd
+EXECPATH=/usr/lib/cups/filter
 
 all: rastertotpcl ppd
 
-.PHONY: all ppd install uninstall clean
+.PHONY: ppd clean install uninstall
 
-rastertotpcl:
-	gcc $(CFLAGS) $(LDFLAGS) $(LDLIBS) rastertotpcl.c -o $(EXEC)
+$(EXEC): rastertotpcl.c
+	gcc $(CFLAGS) rastertotpcl.c -o rastertotpcl -lcupsimage -lcups
 
 ppd:
 	ppdc tectpcl2.drv
 
 install:
-	install -s $(EXEC) $(CUPSDIR)/filter/
-ifeq ($(UNAME_S),Darwin)
-	if test ! -d $(CUPSDATADIR)/ppd/$(EXEC); then mkdir $(CUPSDATADIR)/ppd/$(EXEC); fi
-	install -m 644 ppd/* $(CUPSDATADIR)/ppd/$(EXEC)
-else
-	install -m 644 tectpcl2.drv $(CUPSDATADIR)/drv/
-	install -m 644 labelmedia.h $(CUPSDATADIR)/ppdc/
-endif
-
+	if test ! -d $(PPDPATH)/$(EXEC); then mkdir $(PPDPATH)/$(EXEC); fi
+	cp ppd/* $(PPDPATH)/$(EXEC)
+	cp $(EXEC) $(EXECPATH)/
+	
 
 uninstall:
-	rm -f $(CUPSDIR)/filter/$(EXEC)
-ifeq ($(UNAME_S),Darwin)
-	rm -rf $(CUPSDATADIR)/ppd/$(EXEC)
-else
-	rm -f $(CUPSDATADIR)/drv/tectpcl2.drv
-	rm -f $(CUPSDATADIR)/ppdc/labelmedia.h
-endif
+	rm -rf $(PPDPATH)/$(EXEC)
+	rm -f $(EXECPATH)/$(EXEC)
+
 
 clean:
-	rm -f $(EXEC)
+	rm -f rastertotpcl
 	rm -rf ppd
